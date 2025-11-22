@@ -46,11 +46,11 @@ Una aplicación web moderna para Raspberry Pi que utiliza inteligencia artificia
 
 ```bash
 # Copiar todos los archivos del proyecto a la Raspberry Pi
-scp -r ReciclajeApp/ ramsi@IP_RASPBERRY:/home/ramsi/
+scp -r AppResiclaje/ ramsi@IP_RASPBERRY:/home/ramsi/
 
 # Conectar por SSH a la Raspberry Pi
 ssh ramsi@IP_RASPBERRY
-cd /home/ramsi/ReciclajeApp
+cd /home/ramsi/AppResiclaje
 ```
 
 ### 2️⃣ Ejecutar Instalación Única
@@ -130,7 +130,7 @@ cd /home/ramsi/reciclaje-app
 ## 🏗️ Estructura Final del Proyecto
 
 ```
-ReciclajeApp/
+AppResiclaje/
 ├── backend/                    # Servidor Flask + WebSocket
 │   └── app.py                 # Aplicación principal
 ├── frontend/                  # Interfaz web moderna
