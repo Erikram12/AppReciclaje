@@ -123,14 +123,16 @@ check_success "Inicio automático de X11 configurado"
 
 print_header "PASO 3: INSTALANDO CHROMIUM Y DEPENDENCIAS WEB"
 
-print_step "Instalando Chromium Browser..."
+print_step "Instalando navegadores y herramientas para LCD..."
 sudo apt install -y \
+    midori \
     chromium-browser \
     unclutter \
     xdotool \
+    fbset \
     > /dev/null 2>&1 &
 spinner $!
-check_success "Chromium Browser instalado"
+check_success "Navegadores y herramientas LCD instaladas"
 
 print_header "PASO 4: INSTALANDO DEPENDENCIAS PYTHON Y SISTEMA"
 
@@ -196,31 +198,54 @@ sudo chown -R ramsi:ramsi "$APP_DIR"
 check_success "Directorio de aplicación creado"
 
 print_step "Copiando archivos de aplicación..."
-if [ -d "$SCRIPT_DIR/backend" ]; then
+# Detectar si estamos en el directorio AppResiclaje o en un subdirectorio
+if [ -d "backend" ] && [ -d "frontend" ] && [ -f "requirements.txt" ]; then
+    # Estamos en el directorio raíz del proyecto
+    cp -r backend "$APP_DIR/"
+    cp -r frontend "$APP_DIR/"
+    cp -r config "$APP_DIR/"
+    cp requirements.txt "$APP_DIR/"
+elif [ -d "$SCRIPT_DIR/backend" ]; then
+    # Estamos ejecutando desde un subdirectorio
     cp -r "$SCRIPT_DIR/backend" "$APP_DIR/"
     cp -r "$SCRIPT_DIR/frontend" "$APP_DIR/"
     cp -r "$SCRIPT_DIR/config" "$APP_DIR/"
     cp "$SCRIPT_DIR/requirements.txt" "$APP_DIR/"
-    
+else
+    print_error "No se encontraron los archivos de la aplicación"
+    print_info "Asegúrate de ejecutar este script desde el directorio AppResiclaje que contiene:"
+    print_info "  - backend/"
+    print_info "  - frontend/"
+    print_info "  - config/"
+    print_info "  - requirements.txt"
+    exit 1
+fi
+
     # Crear directorio modelo si no existe
     mkdir -p "$APP_DIR/modelo"
-    
-    # Copiar modelo si existe
-    if [ -f "$SCRIPT_DIR/modelo/best.onnx" ]; then
+
+    # Copiar modelo si existe (buscar en diferentes ubicaciones)
+    if [ -f "modelo/best.onnx" ]; then
+        cp modelo/best.onnx "$APP_DIR/modelo/"
+        print_status "Modelo YOLO copiado"
+    elif [ -f "$SCRIPT_DIR/modelo/best.onnx" ]; then
         cp "$SCRIPT_DIR/modelo/best.onnx" "$APP_DIR/modelo/"
         print_status "Modelo YOLO copiado"
     else
         print_warning "Modelo YOLO no encontrado. Cópialo manualmente a $APP_DIR/modelo/best.onnx"
     fi
-    
-    # Copiar credenciales Firebase si existen
-    if [ -f "$SCRIPT_DIR/config/resiclaje-39011-firebase-adminsdk-fbsvc-433ec62b6c.json" ]; then
+
+    # Copiar credenciales Firebase si existen (buscar en diferentes ubicaciones)
+    if [ -f "config/resiclaje-39011-firebase-adminsdk-fbsvc-433ec62b6c.json" ]; then
+        cp config/resiclaje-39011-firebase-adminsdk-fbsvc-433ec62b6c.json "$APP_DIR/config/"
+        print_status "Credenciales Firebase copiadas"
+    elif [ -f "$SCRIPT_DIR/config/resiclaje-39011-firebase-adminsdk-fbsvc-433ec62b6c.json" ]; then
         cp "$SCRIPT_DIR/config/resiclaje-39011-firebase-adminsdk-fbsvc-433ec62b6c.json" "$APP_DIR/config/"
         print_status "Credenciales Firebase copiadas"
     else
         print_warning "Credenciales Firebase no encontradas. Cópialas manualmente a $APP_DIR/config/"
     fi
-    
+
     check_success "Archivos de aplicación copiados"
 else
     print_error "No se encontraron los archivos de la aplicación en $SCRIPT_DIR"
@@ -246,9 +271,27 @@ check_success "Entorno virtual creado"
 print_step "Instalando dependencias Python..."
 source venv/bin/activate
 pip install --upgrade pip > /dev/null 2>&1
+
+# Instalar dependencias específicas para Raspberry Pi
+print_step "Instalando OpenCV y dependencias principales..."
+pip install opencv-python==4.8.1.78 > /dev/null 2>&1 &
+spinner $!
+check_success "OpenCV instalado"
+
+print_step "Instalando Flask y WebSocket..."
+pip install flask flask-socketio eventlet > /dev/null 2>&1 &
+spinner $!
+check_success "Flask y WebSocket instalados"
+
+print_step "Instalando dependencias restantes..."
 pip install -r requirements.txt > /dev/null 2>&1 &
 spinner $!
-check_success "Dependencias Python instaladas"
+check_success "Todas las dependencias Python instaladas"
+
+# Verificar instalación crítica
+print_step "Verificando instalaciones críticas..."
+python -c "import cv2, flask, socketio; print('Dependencias críticas OK')" > /dev/null 2>&1
+check_success "Verificación de dependencias completada"
 
 print_header "PASO 8: CREANDO ARCHIVO DE CONFIGURACIÓN"
 
@@ -442,31 +485,57 @@ for i in {1..60}; do
     sleep 2
 done
 
-# Iniciar Chromium en modo kiosk
-log "🚀 Iniciando Chromium..."
-chromium-browser \
-    --kiosk \
-    --start-fullscreen \
-    --noerrdialogs \
-    --disable-infobars \
-    --no-first-run \
-    --disable-session-crashed-bubble \
-    --disable-restore-session-state \
-    --disable-background-timer-throttling \
-    --disable-backgrounding-occluded-windows \
-    --disable-renderer-backgrounding \
-    --disable-features=TranslateUI \
-    --no-sandbox \
-    --disable-dev-shm-usage \
-    --disable-gpu \
-    --touch-events=enabled \
-    --force-device-scale-factor=1.0 \
-    "$URL" >> "$LOG_FILE" 2>&1 &
+# Configurar framebuffer para LCD ILI9486
+export FRAMEBUFFER=/dev/fb1
+fbset -fb /dev/fb1 -g 480 320 480 320 16
 
-CHROMIUM_PID=$!
-echo $CHROMIUM_PID > "$APP_DIR/chromium.pid"
+log "✅ LCD ILI9486 configurado (/dev/fb1)"
 
-log "✅ Chromium iniciado (PID: $CHROMIUM_PID)"
+# Intentar con diferentes navegadores para LCD
+log "🚀 Iniciando navegador para LCD ILI9486..."
+
+# Opción 1: Midori (mejor para LCD pequeño)
+if command -v midori &> /dev/null; then
+    log "📱 Usando Midori para LCD..."
+    midori \
+        -e Fullscreen \
+        -e Navigationbar \
+        -a "$URL" >> "$LOG_FILE" 2>&1 &
+
+    BROWSER_PID=$!
+    echo $BROWSER_PID > "$APP_DIR/browser.pid"
+    log "✅ Midori iniciado (PID: $BROWSER_PID)"
+
+# Opción 2: Chromium optimizado para LCD
+else
+    log "🌐 Usando Chromium para LCD..."
+    chromium-browser \
+        --kiosk \
+        --start-fullscreen \
+        --window-size=480,320 \
+        --window-position=0,0 \
+        --noerrdialogs \
+        --disable-infobars \
+        --no-first-run \
+        --disable-session-crashed-bubble \
+        --disable-restore-session-state \
+        --disable-background-timer-throttling \
+        --disable-backgrounding-occluded-windows \
+        --disable-renderer-backgrounding \
+        --disable-features=TranslateUI,VizDisplayCompositor \
+        --no-sandbox \
+        --disable-dev-shm-usage \
+        --disable-gpu \
+        --disable-software-rasterizer \
+        --touch-events=enabled \
+        --force-device-scale-factor=1.0 \
+        --disable-pinch \
+        "$URL" >> "$LOG_FILE" 2>&1 &
+
+    BROWSER_PID=$!
+    echo $BROWSER_PID > "$APP_DIR/browser.pid"
+    log "✅ Chromium iniciado (PID: $BROWSER_PID)"
+fi
 
 # Mantener el script corriendo
 wait
@@ -569,6 +638,55 @@ if ! grep -q "gpu_mem=" /boot/config.txt; then
     echo "gpu_mem=128" | sudo tee -a /boot/config.txt > /dev/null
 fi
 check_success "Memoria GPU configurada"
+
+print_step "Configurando LCD ILI9486..."
+# Verificar que el driver fb_ili9486 esté cargado
+if lsmod | grep -q fb_ili9486; then
+    print_status "Driver fb_ili9486 ya está cargado"
+else
+    print_warning "Driver fb_ili9486 no detectado. Verifica la conexión del LCD."
+fi
+
+# Configurar X11 para usar el LCD como pantalla principal
+sudo mkdir -p /etc/X11/xorg.conf.d
+sudo tee /etc/X11/xorg.conf.d/99-fbdev-lcd.conf > /dev/null << 'XORG_EOF'
+Section "Device"
+    Identifier "LCD ILI9486"
+    Driver "fbdev"
+    Option "fbdev" "/dev/fb1"
+    Option "ShadowFB" "off"
+EndSection
+
+Section "Monitor"
+    Identifier "LCD Monitor"
+    HorizSync 15.0-64.0
+    VertRefresh 50.0-70.0
+    Option "PreferredMode" "480x320"
+EndSection
+
+Section "Screen"
+    Identifier "LCD Screen"
+    Device "LCD ILI9486"
+    Monitor "LCD Monitor"
+    DefaultDepth 16
+    SubSection "Display"
+        Depth 16
+        Modes "480x320"
+        ViewPort 0 0
+    EndSubSection
+EndSection
+
+Section "ServerLayout"
+    Identifier "LCD Layout"
+    Screen 0 "LCD Screen" 0 0
+    Option "BlankTime" "0"
+    Option "StandbyTime" "0"
+    Option "SuspendTime" "0"
+    Option "OffTime" "0"
+EndSection
+XORG_EOF
+
+check_success "Configuración X11 para LCD ILI9486 creada"
 
 print_step "Habilitando cámara..."
 sudo raspi-config nonint do_camera 0 > /dev/null 2>&1
