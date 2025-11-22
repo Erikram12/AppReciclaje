@@ -1,0 +1,747 @@
+#!/bin/bash
+
+# ============================================================================
+# INSTALADOR COMPLETO - APLICACIÓN DE RECICLAJE INTELIGENTE
+# Para Raspberry Pi sin interfaz gráfica
+# ============================================================================
+
+set -e
+
+# Colores para output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+# Función para imprimir con colores
+print_status() {
+    echo -e "${GREEN}[✓]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[!]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[✗]${NC} $1"
+}
+
+print_info() {
+    echo -e "${BLUE}[i]${NC} $1"
+}
+
+print_header() {
+    echo -e "${PURPLE}╔════════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${PURPLE}║${NC} $(printf "%-62s" "$1") ${PURPLE}║${NC}"
+    echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════╝${NC}"
+}
+
+print_step() {
+    echo -e "${CYAN}➤${NC} $1"
+}
+
+# Variables
+APP_DIR="/home/ramsi/reciclaje-app"
+SERVICE_NAME="reciclaje-app"
+USER="ramsi"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Función para verificar si el comando fue exitoso
+check_success() {
+    if [ $? -eq 0 ]; then
+        print_status "$1"
+    else
+        print_error "Error: $1"
+        exit 1
+    fi
+}
+
+# Función para crear spinner de carga
+spinner() {
+    local pid=$1
+    local delay=0.1
+    local spinstr='|/-\'
+    while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
+        local temp=${spinstr#?}
+        printf " [%c]  " "$spinstr"
+        local spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+        printf "\b\b\b\b\b\b"
+    done
+    printf "    \b\b\b\b"
+}
+
+print_header "INSTALADOR DE RECICLAJE INTELIGENTE v2.0"
+echo ""
+print_info "Este script instalará una aplicación web completa de reciclaje"
+print_info "con detección IA, NFC, MQTT y autoarranque en Raspberry Pi"
+echo ""
+
+# Verificar que estamos en Raspberry Pi
+if ! grep -q "Raspberry Pi" /proc/device-tree/model 2>/dev/null; then
+    print_warning "No se detectó Raspberry Pi. Continuando de todas formas..."
+fi
+
+# Verificar usuario ramsi
+if [ "$(whoami)" != "ramsi" ] && [ ! -d "/home/ramsi" ]; then
+    print_error "Este script debe ejecutarse como usuario 'ramsi'"
+    exit 1
+fi
+
+print_header "PASO 1: ACTUALIZANDO SISTEMA"
+
+print_step "Actualizando lista de paquetes..."
+sudo apt update > /dev/null 2>&1 &
+spinner $!
+check_success "Lista de paquetes actualizada"
+
+print_step "Actualizando paquetes del sistema..."
+sudo apt upgrade -y > /dev/null 2>&1 &
+spinner $!
+check_success "Sistema actualizado"
+
+print_header "PASO 2: INSTALANDO X11 Y ENTORNO GRÁFICO MÍNIMO"
+
+print_step "Instalando servidor X11..."
+sudo apt install -y \
+    xserver-xorg \
+    xinit \
+    x11-xserver-utils \
+    xterm \
+    openbox \
+    lightdm \
+    > /dev/null 2>&1 &
+spinner $!
+check_success "Servidor X11 instalado"
+
+print_step "Configurando inicio automático de X11..."
+sudo systemctl enable lightdm > /dev/null 2>&1
+check_success "Inicio automático de X11 configurado"
+
+print_header "PASO 3: INSTALANDO CHROMIUM Y DEPENDENCIAS WEB"
+
+print_step "Instalando Chromium Browser..."
+sudo apt install -y \
+    chromium-browser \
+    unclutter \
+    xdotool \
+    > /dev/null 2>&1 &
+spinner $!
+check_success "Chromium Browser instalado"
+
+print_header "PASO 4: INSTALANDO DEPENDENCIAS PYTHON Y SISTEMA"
+
+print_step "Instalando Python y herramientas de desarrollo..."
+sudo apt install -y \
+    python3 \
+    python3-pip \
+    python3-venv \
+    python3-dev \
+    build-essential \
+    cmake \
+    git \
+    curl \
+    > /dev/null 2>&1 &
+spinner $!
+check_success "Python y herramientas instaladas"
+
+print_step "Instalando dependencias de OpenCV..."
+sudo apt install -y \
+    libopencv-dev \
+    python3-opencv \
+    libatlas-base-dev \
+    libjasper-dev \
+    libqtgui4 \
+    libqt4-test \
+    libhdf5-dev \
+    libhdf5-serial-dev \
+    libjpeg-dev \
+    libtiff5-dev \
+    libpng-dev \
+    libavcodec-dev \
+    libavformat-dev \
+    libswscale-dev \
+    libv4l-dev \
+    libxvidcore-dev \
+    libx264-dev \
+    > /dev/null 2>&1 &
+spinner $!
+check_success "Dependencias de OpenCV instaladas"
+
+print_header "PASO 5: INSTALANDO DEPENDENCIAS NFC"
+
+print_step "Instalando soporte para NFC/SmartCard..."
+sudo apt install -y \
+    pcscd \
+    pcsc-tools \
+    libpcsclite-dev \
+    libpcsclite1 \
+    > /dev/null 2>&1 &
+spinner $!
+check_success "Soporte NFC instalado"
+
+print_step "Habilitando servicio PCSC..."
+sudo systemctl enable pcscd > /dev/null 2>&1
+sudo systemctl start pcscd > /dev/null 2>&1
+check_success "Servicio PCSC habilitado"
+
+print_header "PASO 6: CONFIGURANDO APLICACIÓN"
+
+print_step "Creando directorio de aplicación..."
+sudo mkdir -p "$APP_DIR"
+sudo chown -R ramsi:ramsi "$APP_DIR"
+check_success "Directorio de aplicación creado"
+
+print_step "Copiando archivos de aplicación..."
+if [ -d "$SCRIPT_DIR/backend" ]; then
+    cp -r "$SCRIPT_DIR/backend" "$APP_DIR/"
+    cp -r "$SCRIPT_DIR/frontend" "$APP_DIR/"
+    cp -r "$SCRIPT_DIR/config" "$APP_DIR/"
+    cp "$SCRIPT_DIR/requirements.txt" "$APP_DIR/"
+    
+    # Crear directorio modelo si no existe
+    mkdir -p "$APP_DIR/modelo"
+    
+    # Copiar modelo si existe
+    if [ -f "$SCRIPT_DIR/modelo/best.onnx" ]; then
+        cp "$SCRIPT_DIR/modelo/best.onnx" "$APP_DIR/modelo/"
+        print_status "Modelo YOLO copiado"
+    else
+        print_warning "Modelo YOLO no encontrado. Cópialo manualmente a $APP_DIR/modelo/best.onnx"
+    fi
+    
+    # Copiar credenciales Firebase si existen
+    if [ -f "$SCRIPT_DIR/config/resiclaje-39011-firebase-adminsdk-fbsvc-433ec62b6c.json" ]; then
+        cp "$SCRIPT_DIR/config/resiclaje-39011-firebase-adminsdk-fbsvc-433ec62b6c.json" "$APP_DIR/config/"
+        print_status "Credenciales Firebase copiadas"
+    else
+        print_warning "Credenciales Firebase no encontradas. Cópialas manualmente a $APP_DIR/config/"
+    fi
+    
+    check_success "Archivos de aplicación copiados"
+else
+    print_error "No se encontraron los archivos de la aplicación en $SCRIPT_DIR"
+    print_info "Asegúrate de ejecutar este script desde el directorio que contiene:"
+    print_info "  - backend/"
+    print_info "  - frontend/"
+    print_info "  - config/"
+    print_info "  - requirements.txt"
+    exit 1
+fi
+
+# Crear directorio de logs
+mkdir -p "$APP_DIR/logs"
+check_success "Directorio de logs creado"
+
+print_header "PASO 7: CONFIGURANDO ENTORNO VIRTUAL PYTHON"
+
+print_step "Creando entorno virtual Python..."
+cd "$APP_DIR"
+python3 -m venv venv > /dev/null 2>&1
+check_success "Entorno virtual creado"
+
+print_step "Instalando dependencias Python..."
+source venv/bin/activate
+pip install --upgrade pip > /dev/null 2>&1
+pip install -r requirements.txt > /dev/null 2>&1 &
+spinner $!
+check_success "Dependencias Python instaladas"
+
+print_header "PASO 8: CREANDO ARCHIVO DE CONFIGURACIÓN"
+
+print_step "Creando archivo de configuración (.env)..."
+cat > "$APP_DIR/.env" << 'EOF'
+# Configuración de la Aplicación de Reciclaje Inteligente
+# Generado automáticamente
+
+# =============================================================================
+# CONFIGURACIÓN GENERAL
+# =============================================================================
+FLASK_ENV=production
+DEBUG=False
+SECRET_KEY=reciclaje_inteligente_raspberry_pi_2024
+HOST=0.0.0.0
+PORT=5000
+
+# =============================================================================
+# CONFIGURACIÓN MQTT
+# =============================================================================
+MQTT_BROKER=2e139bb9a6c5438b89c85c91b8cbd53f.s1.eu.hivemq.cloud
+MQTT_PORT=8883
+MQTT_USER=ramsi
+MQTT_PASSWORD=Erikram2025
+MQTT_MATERIAL_TOPIC=material/detectado
+MQTT_NIVEL_TOPIC=reciclaje/esp32-01/nivel
+MQTT_USE_TLS=True
+
+# =============================================================================
+# CONFIGURACIÓN FIREBASE
+# =============================================================================
+FIREBASE_SERVICE_ACCOUNT=config/resiclaje-39011-firebase-adminsdk-fbsvc-433ec62b6c.json
+FIREBASE_DATABASE_URL=https://resiclaje-39011-default-rtdb.firebaseio.com
+
+# =============================================================================
+# CONFIGURACIÓN CÁMARA
+# =============================================================================
+CAMERA_INDEX=0
+CAMERA_WIDTH=640
+CAMERA_HEIGHT=480
+CAMERA_FPS=30
+
+# =============================================================================
+# CONFIGURACIÓN YOLO
+# =============================================================================
+YOLO_MODEL_PATH=modelo/best.onnx
+YOLO_CONFIDENCE=0.5
+YOLO_IMG_SIZE=320
+
+# =============================================================================
+# CONFIGURACIÓN DETECCIÓN
+# =============================================================================
+DETECTION_TIME_THRESHOLD=5.0
+DETECTION_CLASSES=plastico,aluminio
+
+# =============================================================================
+# CONFIGURACIÓN NFC
+# =============================================================================
+NFC_ENABLED=True
+NFC_TIMEOUT=0.5
+
+# =============================================================================
+# CONFIGURACIÓN PUNTOS
+# =============================================================================
+PUNTOS_PLASTICO=20
+PUNTOS_ALUMINIO=30
+
+# =============================================================================
+# CONFIGURACIÓN WEBSOCKET
+# =============================================================================
+WEBSOCKET_ASYNC_MODE=threading
+WEBSOCKET_CORS_ORIGINS=*
+
+# =============================================================================
+# CONFIGURACIÓN LOGGING
+# =============================================================================
+LOG_LEVEL=INFO
+LOG_FILE=logs/app.log
+
+# =============================================================================
+# CONFIGURACIÓN AUTOARRANQUE (RASPBERRY PI)
+# =============================================================================
+AUTOSTART_ENABLED=True
+CHROMIUM_KIOSK=True
+CHROMIUM_URL=http://localhost:5000
+
+# =============================================================================
+# CONFIGURACIÓN RASPBERRY PI
+# =============================================================================
+RASPBERRY_PI=True
+GPIO_ENABLED=False
+EOF
+
+check_success "Archivo de configuración creado"
+
+print_header "PASO 9: CREANDO SCRIPTS DE INICIO"
+
+print_step "Creando script de inicio de aplicación..."
+cat > "$APP_DIR/start_app.sh" << 'EOF'
+#!/bin/bash
+
+# Script de inicio para Aplicación de Reciclaje Inteligente
+APP_DIR="/home/ramsi/reciclaje-app"
+LOG_FILE="$APP_DIR/logs/startup.log"
+
+# Función de logging
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
+}
+
+log "🚀 Iniciando aplicación de reciclaje..."
+
+# Cambiar al directorio de la aplicación
+cd "$APP_DIR"
+
+# Activar entorno virtual
+source venv/bin/activate
+
+# Cargar variables de entorno
+if [ -f ".env" ]; then
+    export $(cat .env | grep -v '^#' | xargs)
+fi
+
+# Esperar a que la red esté disponible
+log "⏳ Esperando conexión de red..."
+for i in {1..30}; do
+    if ping -c 1 8.8.8.8 &> /dev/null; then
+        log "✅ Conexión de red disponible"
+        break
+    fi
+    sleep 2
+done
+
+# Iniciar aplicación
+log "🌐 Iniciando servidor web..."
+python backend/app.py >> "$LOG_FILE" 2>&1 &
+APP_PID=$!
+
+# Guardar PID
+echo $APP_PID > "$APP_DIR/app.pid"
+
+log "✅ Servidor web iniciado (PID: $APP_PID)"
+EOF
+
+chmod +x "$APP_DIR/start_app.sh"
+check_success "Script de inicio de aplicación creado"
+
+print_step "Creando script de inicio de kiosk..."
+cat > "$APP_DIR/start_kiosk.sh" << 'EOF'
+#!/bin/bash
+
+# Script para iniciar Chromium en modo kiosk
+APP_DIR="/home/ramsi/reciclaje-app"
+LOG_FILE="$APP_DIR/logs/kiosk.log"
+URL="http://localhost:5000"
+
+# Función de logging
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
+}
+
+log "🌐 Iniciando modo kiosk..."
+
+# Configurar display
+export DISPLAY=:0
+
+# Esperar a que X11 esté listo
+for i in {1..30}; do
+    if xset q &>/dev/null; then
+        log "✅ X11 disponible"
+        break
+    fi
+    sleep 2
+done
+
+# Configurar pantalla
+xset s off
+xset -dpms
+xset s noblank
+
+# Ocultar cursor
+unclutter -idle 0.5 -root &
+
+# Esperar servidor web
+log "⏳ Esperando servidor web..."
+for i in {1..60}; do
+    if curl -s "$URL" > /dev/null; then
+        log "✅ Servidor web disponible"
+        break
+    fi
+    sleep 2
+done
+
+# Iniciar Chromium en modo kiosk
+log "🚀 Iniciando Chromium..."
+chromium-browser \
+    --kiosk \
+    --start-fullscreen \
+    --noerrdialogs \
+    --disable-infobars \
+    --no-first-run \
+    --disable-session-crashed-bubble \
+    --disable-restore-session-state \
+    --disable-background-timer-throttling \
+    --disable-backgrounding-occluded-windows \
+    --disable-renderer-backgrounding \
+    --disable-features=TranslateUI \
+    --no-sandbox \
+    --disable-dev-shm-usage \
+    --disable-gpu \
+    --touch-events=enabled \
+    --force-device-scale-factor=1.0 \
+    "$URL" >> "$LOG_FILE" 2>&1 &
+
+CHROMIUM_PID=$!
+echo $CHROMIUM_PID > "$APP_DIR/chromium.pid"
+
+log "✅ Chromium iniciado (PID: $CHROMIUM_PID)"
+
+# Mantener el script corriendo
+wait
+EOF
+
+chmod +x "$APP_DIR/start_kiosk.sh"
+check_success "Script de inicio de kiosk creado"
+
+print_header "PASO 10: CONFIGURANDO SERVICIOS SYSTEMD"
+
+print_step "Creando servicio de aplicación..."
+sudo tee /etc/systemd/system/reciclaje-app.service > /dev/null << EOF
+[Unit]
+Description=Aplicación de Reciclaje Inteligente - Backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=forking
+User=ramsi
+Group=ramsi
+WorkingDirectory=$APP_DIR
+ExecStart=$APP_DIR/start_app.sh
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+check_success "Servicio de aplicación creado"
+
+print_step "Creando servicio de kiosk..."
+sudo tee /etc/systemd/system/reciclaje-kiosk.service > /dev/null << EOF
+[Unit]
+Description=Aplicación de Reciclaje Inteligente - Kiosk
+After=graphical.target reciclaje-app.service
+Wants=graphical.target
+Requires=reciclaje-app.service
+
+[Service]
+Type=simple
+User=ramsi
+Group=ramsi
+WorkingDirectory=$APP_DIR
+Environment=DISPLAY=:0
+Environment=HOME=/home/ramsi
+ExecStartPre=/bin/sleep 15
+ExecStart=$APP_DIR/start_kiosk.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=graphical.target
+EOF
+
+check_success "Servicio de kiosk creado"
+
+print_step "Habilitando servicios..."
+sudo systemctl daemon-reload
+sudo systemctl enable reciclaje-app
+sudo systemctl enable reciclaje-kiosk
+check_success "Servicios habilitados"
+
+print_header "PASO 11: CONFIGURANDO AUTOARRANQUE"
+
+print_step "Configurando autologin..."
+sudo systemctl set-default graphical.target
+
+# Configurar autologin para lightdm
+sudo mkdir -p /etc/lightdm/lightdm.conf.d
+sudo tee /etc/lightdm/lightdm.conf.d/01-autologin.conf > /dev/null << EOF
+[Seat:*]
+autologin-user=ramsi
+autologin-user-timeout=0
+EOF
+
+check_success "Autologin configurado"
+
+print_step "Configurando inicio automático de aplicación..."
+mkdir -p /home/ramsi/.config/autostart
+cat > /home/ramsi/.config/autostart/reciclaje-kiosk.desktop << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=Reciclaje Kiosk
+Exec=/home/ramsi/reciclaje-app/start_kiosk.sh
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+EOF
+
+check_success "Inicio automático configurado"
+
+print_header "PASO 12: OPTIMIZANDO RASPBERRY PI"
+
+print_step "Configurando memoria GPU..."
+if ! grep -q "gpu_mem=" /boot/config.txt; then
+    echo "gpu_mem=128" | sudo tee -a /boot/config.txt > /dev/null
+fi
+check_success "Memoria GPU configurada"
+
+print_step "Habilitando cámara..."
+sudo raspi-config nonint do_camera 0 > /dev/null 2>&1
+if ! grep -q "start_x=1" /boot/config.txt; then
+    echo "start_x=1" | sudo tee -a /boot/config.txt > /dev/null
+fi
+check_success "Cámara habilitada"
+
+print_step "Configurando watchdog..."
+if ! grep -q "dtparam=watchdog=on" /boot/config.txt; then
+    echo "dtparam=watchdog=on" | sudo tee -a /boot/config.txt > /dev/null
+fi
+check_success "Watchdog configurado"
+
+print_header "PASO 13: CREANDO SCRIPTS DE GESTIÓN"
+
+print_step "Creando script de gestión..."
+cat > "$APP_DIR/manage.sh" << 'EOF'
+#!/bin/bash
+
+# Script de gestión para Aplicación de Reciclaje Inteligente
+
+case "$1" in
+    start)
+        echo "🚀 Iniciando aplicación..."
+        sudo systemctl start reciclaje-app
+        sudo systemctl start reciclaje-kiosk
+        ;;
+    stop)
+        echo "🛑 Deteniendo aplicación..."
+        sudo systemctl stop reciclaje-kiosk
+        sudo systemctl stop reciclaje-app
+        ;;
+    restart)
+        echo "🔄 Reiniciando aplicación..."
+        sudo systemctl restart reciclaje-app
+        sudo systemctl restart reciclaje-kiosk
+        ;;
+    status)
+        echo "📊 Estado de la aplicación:"
+        sudo systemctl status reciclaje-app
+        echo ""
+        sudo systemctl status reciclaje-kiosk
+        ;;
+    logs)
+        echo "📋 Logs de la aplicación:"
+        sudo journalctl -u reciclaje-app -u reciclaje-kiosk -f
+        ;;
+    logs-app)
+        echo "📋 Logs del backend:"
+        sudo journalctl -u reciclaje-app -f
+        ;;
+    logs-kiosk)
+        echo "📋 Logs del kiosk:"
+        sudo journalctl -u reciclaje-kiosk -f
+        ;;
+    enable)
+        echo "✅ Habilitando autoarranque..."
+        sudo systemctl enable reciclaje-app
+        sudo systemctl enable reciclaje-kiosk
+        ;;
+    disable)
+        echo "❌ Deshabilitando autoarranque..."
+        sudo systemctl disable reciclaje-app
+        sudo systemctl disable reciclaje-kiosk
+        ;;
+    update)
+        echo "📦 Actualizando dependencias..."
+        cd /home/ramsi/reciclaje-app
+        source venv/bin/activate
+        pip install --upgrade -r requirements.txt
+        ;;
+    test-camera)
+        echo "📷 Probando cámara..."
+        ls /dev/video* 2>/dev/null || echo "No se encontraron dispositivos de video"
+        ;;
+    test-nfc)
+        echo "💳 Probando NFC..."
+        pcsc_scan
+        ;;
+    check-temp)
+        echo "🌡️ Temperatura del CPU:"
+        vcgencmd measure_temp
+        ;;
+    *)
+        echo "Uso: $0 {start|stop|restart|status|logs|logs-app|logs-kiosk|enable|disable|update|test-camera|test-nfc|check-temp}"
+        exit 1
+        ;;
+esac
+EOF
+
+chmod +x "$APP_DIR/manage.sh"
+check_success "Script de gestión creado"
+
+print_header "PASO 14: CONFIGURACIÓN FINAL"
+
+print_step "Ajustando permisos..."
+sudo chown -R ramsi:ramsi "$APP_DIR"
+check_success "Permisos ajustados"
+
+print_step "Configurando logrotate..."
+sudo tee /etc/logrotate.d/reciclaje-app > /dev/null << EOF
+$APP_DIR/logs/*.log {
+    daily
+    missingok
+    rotate 7
+    compress
+    delaycompress
+    notifempty
+    copytruncate
+    su ramsi ramsi
+}
+EOF
+
+check_success "Rotación de logs configurada"
+
+print_header "¡INSTALACIÓN COMPLETADA EXITOSAMENTE!"
+
+echo ""
+print_status "🎉 La aplicación de reciclaje inteligente ha sido instalada correctamente"
+echo ""
+
+print_info "📋 RESUMEN DE LA INSTALACIÓN:"
+echo "  ✅ X11 y Chromium instalados"
+echo "  ✅ Aplicación web configurada"
+echo "  ✅ Servicios systemd creados"
+echo "  ✅ Autoarranque configurado"
+echo "  ✅ Scripts de gestión disponibles"
+echo ""
+
+print_info "🔧 COMANDOS ÚTILES:"
+echo "  • Gestionar aplicación:    $APP_DIR/manage.sh {start|stop|restart|status}"
+echo "  • Ver logs:                $APP_DIR/manage.sh logs"
+echo "  • Probar cámara:           $APP_DIR/manage.sh test-camera"
+echo "  • Probar NFC:              $APP_DIR/manage.sh test-nfc"
+echo "  • Ver temperatura:         $APP_DIR/manage.sh check-temp"
+echo ""
+
+print_info "📁 ARCHIVOS IMPORTANTES:"
+echo "  • Configuración:           $APP_DIR/.env"
+echo "  • Logs:                    $APP_DIR/logs/"
+echo "  • Modelo YOLO:             $APP_DIR/modelo/best.onnx"
+echo "  • Credenciales Firebase:   $APP_DIR/config/"
+echo ""
+
+print_warning "⚠️  ANTES DE REINICIAR:"
+if [ ! -f "$APP_DIR/modelo/best.onnx" ]; then
+    echo "  1. Copia tu modelo YOLO a: $APP_DIR/modelo/best.onnx"
+fi
+if [ ! -f "$APP_DIR/config/resiclaje-39011-firebase-adminsdk-fbsvc-433ec62b6c.json" ]; then
+    echo "  2. Copia las credenciales Firebase a: $APP_DIR/config/"
+fi
+echo "  3. Edita la configuración si es necesario: nano $APP_DIR/.env"
+echo ""
+
+print_info "🔄 PARA INICIAR LA APLICACIÓN:"
+echo "  • Reiniciar ahora:         sudo reboot"
+echo "  • O iniciar manualmente:   $APP_DIR/manage.sh start"
+echo ""
+
+print_info "🌐 ACCESO A LA APLICACIÓN:"
+echo "  • Local (en la Pi):        http://localhost:5000"
+echo "  • Desde red local:         http://$(hostname -I | awk '{print $1}'):5000"
+echo ""
+
+print_status "🎯 ¡Todo listo! La aplicación se iniciará automáticamente al reiniciar."
+
+echo ""
+read -p "¿Deseas reiniciar ahora para activar la aplicación? (y/N): " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    print_info "🔄 Reiniciando sistema..."
+    sudo reboot
+else
+    print_info "👍 Puedes reiniciar manualmente cuando estés listo con: sudo reboot"
+fi

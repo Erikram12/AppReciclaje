@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reciclaje Inteligente</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-recycle"></i>
+                    <h1>Reciclaje Inteligente</h1>
+                </div>
+                <div class="status-indicators">
+                    <div class="status-item" id="camera-status">
+                        <i class="fas fa-camera"></i>
+                        <span>Cámara</span>
+                        <div class="status-dot"></div>
+                    </div>
+                    <div class="status-item" id="nfc-status">
+                        <i class="fas fa-credit-card"></i>
+                        <span>NFC</span>
+                        <div class="status-dot"></div>
+                    </div>
+                    <div class="status-item" id="mqtt-status">
+                        <i class="fas fa-wifi"></i>
+                        <span>MQTT</span>
+                        <div class="status-dot"></div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Camera Section -->
+            <section class="camera-section">
+                <div class="camera-container">
+                    <div class="camera-frame">
+                        <img id="camera-feed" src="" alt="Cámara en vivo" />
+                        <div class="camera-overlay">
+                            <div class="fps-counter">
+                                <span id="fps-display">0 FPS</span>
+                            </div>
+                            <div class="detection-info" id="detection-info" style="display: none;">
+                                <div class="material-detected">
+                                    <i class="fas fa-eye"></i>
+                                    <span id="material-name"></span>
+                                </div>
+                                <div class="progress-container">
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" id="progress-fill"></div>
+                                    </div>
+                                    <span class="progress-text" id="progress-text">0%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Modales -->
+        <!-- Modal de Material Detectado -->
+        <div class="modal" id="material-modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>¡Material Detectado!</h2>
+                    <i class="fas fa-check-circle success-icon"></i>
+                </div>
+                <div class="modal-body">
+                    <div class="material-info">
+                        <div class="material-icon" id="modal-material-icon">
+                            <i class="fas fa-recycle"></i>
+                        </div>
+                        <div class="material-details">
+                            <h3 id="modal-material-name">Plástico</h3>
+                            <p>Material detectado correctamente</p>
+                        </div>
+                    </div>
+                    <div class="nfc-instruction">
+                        <div class="nfc-animation">
+                            <div class="nfc-waves">
+                                <div class="wave"></div>
+                                <div class="wave"></div>
+                                <div class="wave"></div>
+                            </div>
+                            <i class="fas fa-credit-card nfc-icon"></i>
+                        </div>
+                        <h4>Acerca tu tarjeta NFC</h4>
+                        <p>Para completar el proceso de reciclaje</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Procesamiento Exitoso -->
+        <div class="modal" id="success-modal">
+            <div class="modal-content success">
+                <div class="modal-header">
+                    <h2>¡Reciclaje Exitoso!</h2>
+                    <i class="fas fa-trophy trophy-icon"></i>
+                </div>
+                <div class="modal-body">
+                    <div class="user-info">
+                        <div class="user-avatar">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="user-details">
+                            <h3 id="user-name">Usuario</h3>
+                            <p>¡Gracias por reciclar!</p>
+                        </div>
+                    </div>
+                    <div class="points-earned">
+                        <div class="points-display">
+                            <span class="points-symbol">+</span>
+                            <span class="points-value" id="points-earned">20</span>
+                            <span class="points-label">puntos</span>
+                        </div>
+                        <div class="points-total">
+                            <span>Total: </span>
+                            <span id="points-total">120 puntos</span>
+                        </div>
+                    </div>
+                    <div class="celebration-animation">
+                        <div class="confetti"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Error -->
+        <div class="modal" id="error-modal">
+            <div class="modal-content error">
+                <div class="modal-header">
+                    <h2>Error</h2>
+                    <i class="fas fa-exclamation-triangle error-icon"></i>
+                </div>
+                <div class="modal-body">
+                    <p id="error-message">Ha ocurrido un error</p>
+                    <button class="btn btn-primary" onclick="closeModal('error-modal')">
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Conectando...</p>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
