@@ -22,11 +22,6 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40);
 #define CH_PLASTICO1 2    // Canal 2 - Plástico 1 (NORMAL)
 #define CH_PLASTICO2 3    // Canal 3 - Plástico 2 (INVERTIDO)
 
-// ====== ÁNGULOS POR SERVOMOTOR (PCA9685 TICKS) ======
-// REPOSO = 180° (recto)
-// Puertas: ahora ACTIVO ≈ 90° (bajan ~90°)
-// Plásticos: ACTIVO ≈ 110° (bajan ~70°)
-
 // --- PUERTA 1 (CH_PUERTA1 - NORMAL) ---
 uint16_t PUERTA1_REPOSO = 500;   // ~180°
 uint16_t PUERTA1_ACTIVO = 310;   // ~90° (baja ~90°)
@@ -137,7 +132,7 @@ float measureDistance(int sensorNumber) {
         trigPin = TRIG_PIN_2;
         echoPin = ECHO_PIN_2;
     } else {
-        Serial.println("❌ Número de sensor inválido");
+        Serial.println("Número de sensor inválido");
         return -1;
     }
     
@@ -158,7 +153,7 @@ float measureDistance(int sensorNumber) {
     
     // Validar la medición
     if (distance == 0 || distance > MAX_DISTANCE) {
-        Serial.printf("⚠️ Error en medición del sensor %d\n", sensorNumber);
+        Serial.printf("Error en medición del sensor %d\n", sensorNumber);
         return -1;
     }
     
@@ -179,7 +174,7 @@ int calculatePercent(float distance) {
 
 // Inicializar servos en posición REPOSO (180°)
 void inicializarServos() {
-    Serial.println("🔧 Inicializando servos en REPOSO (180°)...");
+    Serial.println("Inicializando servos en REPOSO (180°)...");
 
     pwm.setPWM(CH_PUERTA1,   0, PUERTA1_REPOSO);
     pwm.setPWM(CH_PUERTA2,   0, PUERTA2_REPOSO);
@@ -187,13 +182,13 @@ void inicializarServos() {
     pwm.setPWM(CH_PLASTICO2, 0, PLASTICO2_REPOSO);
 
     delay(500);
-    Serial.println("✅ Servos en REPOSO (180°)");
+    Serial.println("Servos en REPOSO (180°)");
 }
 
 // Función para abrir/cerrar compuerta según material
 // Movimiento: 180° (REPOSO) -> ACTIVO (baja) -> 180° (REPOSO)
 void abrirCompuerta() {
-    Serial.println("🚪 Movimiento 180° → ACTIVO → 180°...");
+    Serial.println("Movimiento 180° → ACTIVO → 180°...");
 
     if (material == "plastico") {
         // ⬅️ AHORA: SOLO PUERTAS para PLÁSTICO
@@ -208,14 +203,14 @@ void abrirCompuerta() {
         pwm.setPWM(CH_PLASTICO2, 0, PLASTICO2_ACTIVO);
 
     } else {
-        Serial.println("🚫 Material no válido");
+        Serial.println("Material no válido");
         return;
     }
 
     delay(3000); // tiempo en posición ACTIVO
 
     // Regresar exactamente a REPOSO (180°)
-    Serial.println("🔁 Regresando a REPOSO (180°)...");
+    Serial.println("Regresando a REPOSO (180°)...");
     pwm.setPWM(CH_PUERTA1,   0, PUERTA1_REPOSO);
     pwm.setPWM(CH_PUERTA2,   0, PUERTA2_REPOSO);
     pwm.setPWM(CH_PLASTICO1, 0, PLASTICO1_REPOSO);
@@ -230,8 +225,8 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
         message += (char)payload[i];
     }
     
-    Serial.printf("📨 Mensaje recibido en tópico: %s\n", topic);
-    Serial.printf("📄 Contenido: %s\n", message.c_str());
+    Serial.printf("Mensaje recibido en tópico: %s\n", topic);
+    Serial.printf("Contenido: %s\n", message.c_str());
     
     // Verificar si es detección de material
     if (String(topic) == MQTT_TOPIC) {
@@ -243,15 +238,15 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
         
         if (message == "plastico" || message == "plástico" || message == "plastic") {
             material = "plastico";
-            Serial.println("🔄 Procesando PLÁSTICO - Activando SOLO PUERTAS");
+            Serial.println("Procesando PLÁSTICO - Activando SOLO PUERTAS");
             abrirCompuerta();
         } else if (message == "aluminio" || message == "aluminum") {
             material = "aluminio";
-            Serial.println("🔄 Procesando ALUMINIO - Activando PUERTAS + PLÁSTICOS");
+            Serial.println("Procesando ALUMINIO - Activando PUERTAS + PLÁSTICOS");
             abrirCompuerta();
         } else {
-            Serial.printf("❌ Material no reconocido: %s\n", message.c_str());
-            Serial.println("📋 Materiales válidos: plastico, aluminio");
+            Serial.printf("Material no reconocido: %s\n", message.c_str());
+            Serial.println("Materiales válidos: plastico, aluminio");
         }
     }
 }
@@ -259,7 +254,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 void connectWiFi() {
     if (WiFi.status() == WL_CONNECTED) return;
     
-    Serial.printf("📡 Conectando a WiFi: %s\n", WIFI_SSID);
+    Serial.printf("Conectando a WiFi: %s\n", WIFI_SSID);
     WiFi.mode(WIFI_STA);
     WiFi.begin(WIFI_SSID, WIFI_PASS);
     
@@ -271,9 +266,9 @@ void connectWiFi() {
     }
     
     if (WiFi.status() == WL_CONNECTED) {
-        Serial.printf("\n✅ WiFi conectado. IP: %s\n", WiFi.localIP().toString().c_str());
+        Serial.printf("\n WiFi conectado. IP: %s\n", WiFi.localIP().toString().c_str());
     } else {
-        Serial.println("\n❌ Error conectando WiFi");
+        Serial.println("\n Error conectando WiFi");
     }
 }
 
@@ -306,16 +301,16 @@ void connectMQTT() {
         
         // Suscribirse al tópico de detección de material
         mqtt.subscribe(MQTT_TOPIC);
-        Serial.printf("✅ MQTT conectado y suscrito a: %s\n", MQTT_TOPIC);
+        Serial.printf("MQTT conectado y suscrito a: %s\n", MQTT_TOPIC);
     } else {
-        Serial.printf("❌ Error MQTT (%d)\n", mqtt.state());
+        Serial.printf("Error MQTT (%d)\n", mqtt.state());
     }
 }
 
 void publishNivel(const char* target, float dist_cm, int percent, const String& state) {
     // Verificar si hay cambios significativos antes de enviar
     if (!hasSignificantChange(target, percent, state)) {
-        Serial.printf("⏭️ %s: Sin cambios significativos (%d%% %s) - Omitiendo envío\n", 
+        Serial.printf("⏭️ %s: Sin cambios significativos (%d%% %s) - Omitiendo envío\n",
                      target, percent, state.c_str());
         return;
     }
@@ -339,7 +334,7 @@ void publishNivel(const char* target, float dist_cm, int percent, const String& 
         // Actualizar el estado anterior después de enviar exitosamente
         updateLastState(target, percent, state);
     } else {
-        Serial.println("❌ Error publicando mensaje");
+        Serial.println("Error publicando mensaje");
     }
 }
 
@@ -347,7 +342,7 @@ void setup() {
     Serial.begin(115200);
     delay(1000);
     
-    Serial.println("🚀 Iniciando ESP32 - Sistema de Reciclaje");
+    Serial.println("Iniciando ESP32 - Sistema de Reciclaje");
     
     // Configurar pines del sensor 1 (Plástico)
     pinMode(TRIG_PIN_1, OUTPUT);
@@ -370,19 +365,19 @@ void setup() {
     connectWiFi();
     connectMQTT();
     
-    Serial.println("✅ Sistema iniciado correctamente");
-    Serial.println("📋 Tópicos MQTT:");
-    Serial.printf("   📤 Publicar datos: reciclaje/%s/nivel\n", deviceId.c_str());
-    Serial.printf("   📥 Detección material: %s\n", MQTT_TOPIC);
-    Serial.printf("   📊 Estado: reciclaje/%s/status\n", deviceId.c_str());
-    Serial.println("🔧 Configuración de sensores:");
-    Serial.println("   📏 Sensor 1 (PLÁSTICO): TRIG=5, ECHO=18");
-    Serial.println("   📏 Sensor 2 (ALUMINIO): TRIG=4, ECHO=19");
-    Serial.println("🔧 Configuración de servos (todos MG995):");
-    Serial.println("   🚪 CH_PUERTA1: Normal (dirección estándar)");
-    Serial.println("   🚪 CH_PUERTA2: Invertido (dirección opuesta)");
-    Serial.println("   🔄 CH_PLASTICO1: Normal (dirección estándar)");
-    Serial.println("   🔄 CH_PLASTICO2: Invertido (dirección opuesta)");
+    Serial.println("Sistema iniciado correctamente");
+    Serial.println("Tópicos MQTT:");
+    Serial.printf("Publicar datos: reciclaje/%s/nivel\n", deviceId.c_str());
+    Serial.printf("Detección material: %s\n", MQTT_TOPIC);
+    Serial.printf("Estado: reciclaje/%s/status\n", deviceId.c_str());
+    Serial.println("Configuración de sensores:");
+    Serial.println("Sensor 1 (PLÁSTICO): TRIG=5, ECHO=18");
+    Serial.println("Sensor 2 (ALUMINIO): TRIG=4, ECHO=19");
+    Serial.println("Configuración de servos (todos MG995):");
+    Serial.println("CH_PUERTA1: Normal (dirección estándar)");
+    Serial.println("CH_PUERTA2: Invertido (dirección opuesta)");
+    Serial.println("CH_PLASTICO1: Normal (dirección estándar)");
+    Serial.println("CH_PLASTICO2: Invertido (dirección opuesta)");
 }
 
 void loop() {
@@ -409,10 +404,10 @@ void loop() {
             String state1   = calcState(percent1);
             publishNivel("contePlastico", distance1, percent1, state1);
         } else {
-            Serial.println("⚠️ No se pudo medir distancia en sensor 1 (Plástico)");
+            Serial.println("No se pudo medir distancia en sensor 1 (Plástico)");
         }
         
-        delay(100);  // Pequeña pausa entre lecturas de sensores
+        delay(100);
         
         // Medir distancia del sensor 2 (Aluminio)
         float distance2 = measureDistance(2);
@@ -422,7 +417,7 @@ void loop() {
             String state2   = calcState(percent2);
             publishNivel("conteAluminio", distance2, percent2, state2);
         } else {
-            Serial.println("⚠️ No se pudo medir distancia en sensor 2 (Aluminio)");
+            Serial.println("No se pudo medir distancia en sensor 2 (Aluminio)");
         }
     }
     

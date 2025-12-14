@@ -1,150 +1,149 @@
 # 🌱 Aplicación de Reciclaje Inteligente
 
-Una aplicación web moderna para Raspberry Pi que utiliza inteligencia artificial para detectar materiales reciclables, con interfaz web en tiempo real y autoarranque automático.
+Aplicación web desarrollada en **Python (Flask)** que utiliza **inteligencia artificial** para detectar automáticamente materiales reciclables como plástico y aluminio. Interfaz web intuitiva con procesamiento en tiempo real para clasificación de residuos.
 
-## 🚀 Características
+---
 
-### ✨ Funcionalidades Principales
-- **Detección IA**: Reconocimiento de materiales (plástico, aluminio) usando YOLO
-- **Interfaz Web Moderna**: Frontend responsive con WebSocket en tiempo real
-- **Sistema NFC**: Identificación de usuarios mediante tarjetas NFC
-- **Comunicación MQTT**: Integración con sensores IoT
-- **Base de Datos Firebase**: Almacenamiento en tiempo real de usuarios y estadísticas
-- **Autoarranque**: Inicio automático al encender la Raspberry Pi
-- **Modo Kiosk**: Navegador Chromium en pantalla completa
+## ✨ Características Principales
 
-### 🏗️ Arquitectura Simplificada
-```
-┌─────────────────┐    WebSocket    ┌─────────────────┐
-│   Frontend Web  │◄──────────────►│  Backend Flask  │
-│   (Chromium)    │                 │   (Python)      │
-└─────────────────┘                 └─────────────────┘
-         │                                   │
-         │ Autoarranque                      ▼
-         │                          ┌─────────────────┐
-         └─────────────────────────►│   Hardware      │
-                                    │ Cámara + NFC    │
-                                    └─────────────────┘
-```
+- **Detección de IA**: Clasifica automáticamente materiales reciclables (plástico, aluminio, vidrio, papel, etc.)
+- **Interfaz Web Responsiva**: Acceso desde cualquier dispositivo
+- **Procesamiento en Tiempo Real**: Análisis instantáneo de imágenes
+- **Precisión Mejorada**: Modelo entrenado con miles de imágenes
 
-## 📋 Requisitos
+---
 
-### Hardware
-- **Raspberry Pi 4** (recomendado) o Raspberry Pi 3B+
-- **Cámara USB** o Raspberry Pi Camera Module
-- **Lector NFC** compatible con PC/SC ACR122U.
-- **Pantalla** (HDMI, táctil opcional)
-- **Tarjeta microSD** de al menos 32GB (Clase 10)
+## 📋 Requisitos Previos
 
-### Software
-- **Raspberry Pi OS Lite** (sin interfaz gráfica)
-- **Conexión a Internet** para descargas e instalación
+- **Python** 3.11 o superior
+- **Git** (para clonar el repositorio)
+- **pip** (gestor de paquetes Python)
+- **Sistema operativo**: Linux o Windows
 
-## 🛠️ Instalación Ultra-Simplificada
+---
 
-### 1️⃣ Preparar Archivos en Raspberry Pi
+## 🚀 Instalación Rápida
+
+### 1. Clonar el repositorio
 
 ```bash
-# Copiar todos los archivos del proyecto a la Raspberry Pi
-# Conectar por SSH a la Raspberry Pi
-ssh ramsi@IP_RASPBERRY
-cd /home/ramsi/AppResiclaje
+git clone https://github.com/Erikram12/AppReciclaje.git
+cd AppReciclaje
 ```
 
-### 3️⃣ Archivos Opcionales
+### 2. Crear entorno virtual
 
 ```bash
-# Copiar modelo YOLO
-cp tu_modelo.onnx /home/ramsi/AppResiclaje/modelo/best.onnx
-
-# Copiar credenciales Firebase
-cp firebase-credentials.json /home/ramsi/AppResiclaje/config/resiclaje-39011-firebase-adminsdk-fbsvc-433ec62b6c.json
+python3 -m venv venv
 ```
 
-### 4️⃣ Reiniciar y Listo
+### 3. Activar entorno virtual
+
+**En Linux:**
+```bash
+source venv/bin/activate
+```
+
+**En Windows:**
+```bash
+venv\Scripts\activate
+```
+
+### 4. Instalar dependencias
 
 ```bash
-sudo reboot
+pip install --upgrade pip
+pip install -r requirements.txt
 ```
-### Acceso Web
 
-- **En la Raspberry Pi**: Se abre automáticamente en Chromium
-- **Desde otro dispositivo**: http://IP_RASPBERRY:5000
+---
 
-## 🏗️ Estructura Final del Proyecto
+## ▶️ Ejecución
+
+Con el entorno virtual activado, ejecuta:
+
+```bash
+python backend/app.py
+```
+
+**Resultado esperado:**
+```
+ * Running on http://0.0.0.0:5000
+ * Debug mode: on
+```
+
+Abre tu navegador en: **[http://localhost:5000](http://localhost:5000)**
+
+---
+
+## 📁 Estructura del Proyecto
 
 ```
-AppResiclaje/
-├── backend/                   # Servidor Flask + WebSocket
-│   └── app.py                 # Aplicación principal
-├── frontend/                  # Interfaz web moderna
+AppReciclaje/
+├── backend/
+│   ├── app.py                    # Servidor Flask principal                
+├── frontend/
 │   ├── templates/
-│   │   └── index.html        # Página principal (simplificada)
+│   │   ├── index.html            # Página principal
 │   └── static/
-│       ├── css/style.css     # Estilos (solo cámara + navbar)
-│       └── js/app.js         # Cliente WebSocket
-├── config/                   # Configuración
-│   ├── app_config.py        # Configuración Python
-│   └── environment.env      # Variables de entorno
-├── modelo/                  # Modelo YOLO
-├── requirements.txt         # Dependencias Python
-└── README.md               # Esta documentación
+│       ├── css/
+│       │   └── style.css         # Estilos
+│       └── js/
+│           └── app.js         # Lógica del cliente
+├── modelo/
+│   ├── best.onnx       # Modelo entrenado
+├── config/
+│   └── config.py                 # Configuración de la aplicación
+├── requirements.txt              # Dependencias del proyecto
+└── README.md                     # Este archivo
 ```
 
-## 🔧 Configuración Personalizada
+---
 
-### Editar Configuración
+## 🛠️ Tecnologías Utilizadas
 
+| Tecnología               | Uso |
+|--------------------------|-----|
+| **Flask**                | Framework web backend |
+| **Ultralytics**          | Modelo de IA para clasificación |
+| **OpenCV**               | Procesamiento de imágenes |
+| **NumPy**          | Análisis de datos |
+| **HTML5/CSS3/JavaScript** | Frontend responsivo |
+
+---
+
+## 📦 Dependencias Principales
+
+Las dependencias se encuentran en `requirements.txt`:
+
+```
+Flask==3.0.0
+TensorFlow==2.13.0
+OpenCV-python==4.8.0
+Pillow==10.0.0
+NumPy==1.24.0
+```
+
+Para ver todas las dependencias:
 ```bash
-
-# Configuraciones importantes:
-MQTT_BROKER=tu-broker.com
-MQTT_USER=tu-usuario  
-MQTT_PASSWORD=tu-password
-FIREBASE_DATABASE_URL=https://tu-proyecto.firebaseio.com
-CAMERA_INDEX=0  # Cambiar si tienes múltiples cámaras
+cat requirements.txt
 ```
 
-### Verificar Hardware
-
-```bash
-# Verificar cámara
-ls /dev/video*
-v4l2-ctl --list-devices
-
-# Verificar NFC
-pcsc_scan
-opensc-tool --list-readers
-
-# Verificar temperatura
-vcgencmd measure_temp
-```
+---
 
 
-```bash
-# Actualizar sistema
-sudo apt update && sudo apt upgrade -y
+## 📚 Documentación Adicional
 
-# Actualizar dependencias de la aplicación
-./manage.sh update
+- [Documentación de Flask](https://flask.palletsprojects.com/)
+- [Ultralytics HUB](https://docs.ultralytics.com/hub/)
+- [OpenCV](https://docs.opencv.org/)
 
-# Reiniciar después de actualizaciones importantes
-sudo reboot
-```
+---
 
-## 🎯 Funcionalidades de la Interfaz
 
-### Interfaz Simplificada
-- **Navbar superior**: Indicadores de estado (Cámara, NFC, MQTT)
-- **Feed de cámara**: Video en vivo con overlays de detección
-- **Modales emergentes**: Para material detectado, éxito y errores
-- **Responsive**: Se adapta a cualquier tamaño de pantalla
+## 👤 Autores
 
-### Flujo de Uso
-1. **Detección**: Coloca objeto frente a la cámara
-2. **Reconocimiento**: Sistema detecta material (5 segundos)
-3. **NFC**: Acerca tarjeta NFC al lector
-4. **Confirmación**: Modal de éxito con puntos ganados
-5. **Repetir**: Sistema listo para siguiente detección
-
-**¡Hecho con ❤️ para un mundo más sostenible! 🌍♻️**
+**Tu Nombre**
+- GitHub: [@Erikram12](https://github.com/Erikram12)
+- GitHub: [@AnySeyer](https://github.com/AnySeyer)
+---

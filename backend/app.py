@@ -112,14 +112,14 @@ TARGET_W, TARGET_H = 320, 480
 # ---------- FUNCIONES MQTT ----------
 def on_mqtt_connect(client, userdata, connect_flags, reason_code, properties):
     if reason_code == 0:
-        logger.info("[MQTT] ✅ Conectado al broker")
+        logger.info("[MQTT] Conectado al broker")
         client.subscribe(MQTT_NIVEL_TOPIC, qos=1)
         logger.info(f"[MQTT] 📥 Suscrito a: {MQTT_NIVEL_TOPIC}")
         with lock:
             app_state['mqtt_connected'] = True
         socketio.emit('mqtt_status', {'connected': True})
     else:
-        logger.error(f"[MQTT] ❌ Error de conexión: {reason_code}")
+        logger.error(f"[MQTT] Error de conexión: {reason_code}")
         with lock:
             app_state['mqtt_connected'] = False
         socketio.emit('mqtt_status', {'connected': False})
@@ -137,9 +137,9 @@ def on_mqtt_message(client, userdata, msg):
             handle_nivel_update(data)
 
     except json.JSONDecodeError:
-        logger.error(f"[MQTT] ❌ Error al parsear JSON: {msg.payload}")
+        logger.error(f"[MQTT] Error al parsear JSON: {msg.payload}")
     except Exception as e:
-        logger.error(f"[MQTT] ❌ Error procesando mensaje: {e}")
+        logger.error(f"[MQTT] Error procesando mensaje: {e}")
 
 
 def handle_nivel_update(data):
@@ -152,7 +152,7 @@ def handle_nivel_update(data):
         ts = data.get('ts')
 
         if not target:
-            logger.error("[Firebase] ❌ Campo 'target' no encontrado")
+            logger.error("[Firebase] Campo 'target' no encontrado")
             return
 
         firebase_data = {
@@ -176,10 +176,10 @@ def handle_nivel_update(data):
         #     'data': firebase_data
         # })
 
-        logger.info(f"[Firebase] ✅ Actualizado: contenedor/{target}")
+        logger.info(f"[Firebase] Actualizado: contenedor/{target}")
 
     except Exception as e:
-        logger.error(f"[Firebase] ❌ Error guardando datos: {e}")
+        logger.error(f"[Firebase] Error guardando datos: {e}")
 
 
 def setup_mqtt():
@@ -191,7 +191,7 @@ def setup_mqtt():
         mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
         mqtt_client.loop_start()
     except Exception as e:
-        logger.error(f"[MQTT] ❌ Error conectando: {e}")
+        logger.error(f"[MQTT] Error conectando: {e}")
 
 
 # ---------- FUNCIONES NFC ----------
@@ -202,7 +202,7 @@ def get_reader():
             raise RuntimeError("No se detectaron lectores PC/SC.")
         return r[0]
     except Exception as e:
-        logger.warning(f"[NFC] ⚠️  No hay lector disponible: {e}")
+        logger.warning(f"[NFC] No hay lector disponible: {e}")
         return None
 
 
@@ -227,7 +227,7 @@ def loop_nfc():
     """Thread para manejo de NFC"""
     lector = get_reader()
     if not lector:
-        logger.warning("[NFC] ⚠️ Lector NFC no disponible - Modo simulación activado")
+        logger.warning("[NFC] Lector NFC no disponible - Modo simulación activado")
         with lock:
             app_state['nfc_active'] = False
 
@@ -240,7 +240,7 @@ def loop_nfc():
 
     conn = lector.createConnection()
     last_uid = None
-    logger.info("[NFC] ✅ Esperando tarjetas...")
+    logger.info("[NFC] Esperando tarjetas...")
 
     while app_state['nfc_active']:
         try:
@@ -294,7 +294,7 @@ def loop_nfc():
                                     nfc_index_ref.child(uid.upper()).set(user_id)
 
                                     logger.info(
-                                        f"[NFC-LINK] ✅ Vinculación exitosa: {app_state['nfc_linking_user_name']} -> {uid}")
+                                        f"[NFC-LINK] Vinculación exitosa: {app_state['nfc_linking_user_name']} -> {uid}")
 
                                     # Notificar éxito
                                     socketio.emit('nfc_link_success', {
@@ -356,7 +356,7 @@ def loop_nfc():
                                     app_state['material_detectado'] = None
 
                                     logger.info(
-                                        f"[PROCESO] ✅ {nombre} ganó {puntos} puntos por {app_state['material_detectado']}")
+                                        f"[PROCESO] {nombre} ganó {puntos} puntos por {app_state['material_detectado']}")
                             else:
                                 logger.warning("[DB] UID no registrado")
                                 socketio.emit('nfc_error', {'message': 'Tarjeta no registrada'})
@@ -392,34 +392,34 @@ def loop_yolo():
     if weights.exists():
         try:
             model = YOLO(str(weights), task="detect")
-            logger.info("✅ Modelo YOLO cargado")
+            logger.info("Modelo YOLO cargado")
         except Exception as e:
-            logger.error(f"❌ Error cargando modelo YOLO: {e}")
+            logger.error(f"Error cargando modelo YOLO: {e}")
             model = None
     else:
-        logger.warning(f"⚠️ Modelo YOLO no encontrado: {weights.resolve()}")
-        logger.info("📹 Continuando solo con cámara (sin detección)")
+        logger.warning(f"Modelo YOLO no encontrado: {weights.resolve()}")
+        logger.info("Continuando solo con cámara (sin detección)")
 
-    logger.info("📷 Intentando abrir cámara...")
+    logger.info("Intentando abrir cámara...")
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
-        logger.error("❌ No se pudo abrir la cámara")
+        logger.error("No se pudo abrir la cámara")
         with lock:
             app_state['camera_active'] = False
         return
 
-    logger.info("✅ Cámara abierta correctamente")
+    logger.info("Cámara abierta correctamente")
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
     prev_time = time.time()
     frame_count = 0
-    logger.info("🎥 Iniciando bucle de cámara...")
+    logger.info("Iniciando bucle de cámara...")
 
     while app_state['camera_active']:
         ret, frame = cap.read()
         if not ret:
-            logger.error("❌ Error leyendo frame de cámara")
+            logger.error("Error leyendo frame de cámara")
             break
 
         current_time = time.time()
