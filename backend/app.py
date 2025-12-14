@@ -1,8 +1,4 @@
 #!/usr/bin/env python3
-"""
-Backend Flask con WebSocket para aplicación de reciclaje inteligente
-Migración de OpenCV GUI a aplicación web
-"""
 import os
 import sys
 import ssl
@@ -25,10 +21,46 @@ import signal
 import base64
 from datetime import datetime
 import logging
+import platform
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+# ---------- DETECCIÓN DE PLATAFORMA ----------
+def is_raspberry_pi():
+    """Detecta si el sistema es una Raspberry Pi"""
+    try:
+        # Método 1: Verificar /proc/cpuinfo
+        if os.path.exists('/proc/cpuinfo'):
+            with open('/proc/cpuinfo', 'r') as f:
+                cpuinfo = f.read()
+                if 'Raspberry Pi' in cpuinfo or 'BCM' in cpuinfo:
+                    return True
+
+        # Método 2: Verificar variable de entorno
+        if os.getenv('RASPBERRY_PI', '').lower() == 'true':
+            return True
+
+        # Método 3: Verificar si estamos en Linux ARM
+        if platform.system() == 'Linux' and 'arm' in platform.machine().lower():
+            return True
+
+    except Exception:
+        pass
+
+    return False
+
+
+# Detectar plataforma y ajustar FPS
+IS_RASPBERRY_PI = is_raspberry_pi()
+TARGET_FPS = 15.0 if IS_RASPBERRY_PI else 30.0  # 15 FPS para Raspberry Pi, 30 para otros sistemas
+
+if IS_RASPBERRY_PI:
+    logger.info("Raspberry Pi detectada - FPS objetivo: 15")
+else:
+    logger.info(f" Sistema detectado: {platform.system()} - FPS objetivo: 30")
 
 # Crear aplicación Flask
 app = Flask(__name__, template_folder='../frontend/templates', static_folder='../frontend/static')
@@ -114,7 +146,7 @@ def on_mqtt_connect(client, userdata, connect_flags, reason_code, properties):
     if reason_code == 0:
         logger.info("[MQTT] Conectado al broker")
         client.subscribe(MQTT_NIVEL_TOPIC, qos=1)
-        logger.info(f"[MQTT] 📥 Suscrito a: {MQTT_NIVEL_TOPIC}")
+        logger.info(f"[MQTT] Suscrito a: {MQTT_NIVEL_TOPIC}")
         with lock:
             app_state['mqtt_connected'] = True
         socketio.emit('mqtt_status', {'connected': True})
@@ -186,7 +218,7 @@ def setup_mqtt():
     mqtt_client.on_connect = on_mqtt_connect
     mqtt_client.on_message = on_mqtt_message
 
-    logger.info("[MQTT] 🔗 Intentando conectar...")
+    logger.info("[MQTT] Intentando conectar...")
     try:
         mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
         mqtt_client.loop_start()
@@ -394,32 +426,35 @@ def loop_yolo():
             model = YOLO(str(weights), task="detect")
             logger.info("Modelo YOLO cargado")
         except Exception as e:
-            logger.error(f"Error cargando modelo YOLO: {e}")
+            logger.error(f" Error cargando modelo YOLO: {e}")
             model = None
     else:
-        logger.warning(f"Modelo YOLO no encontrado: {weights.resolve()}")
-        logger.info("Continuando solo con cámara (sin detección)")
+        logger.warning(f" Modelo YOLO no encontrado: {weights.resolve()}")
+        logger.info("📹 Continuando solo con cámara (sin detección)")
 
-    logger.info("Intentando abrir cámara...")
+    logger.info("📷 Intentando abrir cámara...")
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
-        logger.error("No se pudo abrir la cámara")
+        logger.error(" No se pudo abrir la cámara")
         with lock:
             app_state['camera_active'] = False
         return
 
-    logger.info("Cámara abierta correctamente")
+    logger.info(" Cámara abierta correctamente")
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
     prev_time = time.time()
     frame_count = 0
-    logger.info("Iniciando bucle de cámara...")
+    target_fps = TARGET_FPS  # FPS objetivo según plataforma
+    frame_time = 1.0 / target_fps  # Tiempo por frame en segundos
+    logger.info(f" Iniciando bucle de cámara (target FPS: {target_fps})...")
 
     while app_state['camera_active']:
+        loop_start_time = time.time()
         ret, frame = cap.read()
         if not ret:
-            logger.error("Error leyendo frame de cámara")
+            logger.error(" Error leyendo frame de cámara")
             break
 
         current_time = time.time()
@@ -478,8 +513,9 @@ def loop_yolo():
                 # Sin modelo YOLO, usar frame original
                 annotated = frame
 
-            # Calcular FPS y enviar frame (siempre)
-            fps = 1 / (current_time - prev_time) if prev_time > 0 else 0
+            # Calcular FPS real basado en tiempo transcurrido
+            elapsed = current_time - prev_time
+            fps = 1.0 / elapsed if elapsed > 0 else 0
             app_state['fps'] = fps
             prev_time = current_time
 
@@ -504,10 +540,14 @@ def loop_yolo():
                     'timestamp': current_time
                 })
 
-        time.sleep(0.1)  # Control de FPS
+        # Control de FPS más eficiente: calcular tiempo usado y dormir solo lo necesario
+        loop_elapsed = time.time() - loop_start_time
+        sleep_time = max(0, frame_time - loop_elapsed)
+        if sleep_time > 0:
+            time.sleep(sleep_time)
 
     cap.release()
-    logger.info("✅ Cámara liberada")
+    logger.info(" Cámara liberada")
 
 
 # ---------- RUTAS API REST ----------
@@ -533,14 +573,6 @@ def api_status():
             'stats': app_state['stats'],
             'timestamp': datetime.now().isoformat()
         })
-
-
-# Comentado: Ya no se usa en el frontend simplificado
-# @app.route('/api/contenedores')
-# def api_contenedores():
-#     """Estado de contenedores"""
-#     with lock:
-#         return jsonify(app_state['contenedores'])
 
 @app.route('/api/reset', methods=['POST'])
 def api_reset():
@@ -685,7 +717,7 @@ def handle_cancel_nfc_linking():
 # ---------- MANEJO DE SEÑALES ----------
 def handle_sigterm(signum, frame):
     """Manejo de señal de terminación"""
-    logger.info("🛑 Cerrando aplicación...")
+    logger.info(" Cerrando aplicación...")
 
     with lock:
         app_state['camera_active'] = False
