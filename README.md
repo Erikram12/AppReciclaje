@@ -142,8 +142,6 @@ cat requirements.txt
 
 
 ## 👤 Autores
-
-**Tu Nombre**
 - GitHub: [@Erikram12](https://github.com/Erikram12)
 - GitHub: [@AnySeyer](https://github.com/AnySeyer)
 ---
